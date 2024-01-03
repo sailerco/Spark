@@ -46,10 +46,9 @@ object Utils {
     }
   }
 
-  def readParquet(session: SparkSession): Unit = {
+  def readParquet(session: SparkSession): Dataset[_] = {
     import session.implicits._
-    val data = session.read.parquet("./data/matches").as[Joined]
-    data.createTempView("matches")
+    session.read.parquet("./data/matches").as[Joined]
   }
 
   def createParquetFile(results: Dataset[Results], scorer: Dataset[Scorer], shootouts: Dataset[Shootouts]): Unit = {

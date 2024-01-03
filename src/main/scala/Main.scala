@@ -16,11 +16,13 @@ object Main {
 
     val utils = new Utils(session)
     //createParquetFile(utils.results, utils.scorer, utils.shootouts)
-    val queryList = List(SQLQueries(session), DataSetQueries(session, utils.results, utils.scorer))
+    val queryList = List(ParquetQueries(session), SparkSQLQueries(session, utils.results, utils.scorer))
     for (queries <- queryList) {
       execute(queries, "Gerd Müller", 15, 20)
     }
-
+    Console.in.read()
+    for(query <- queryList)
+      query.close()
     Console.in.read()
   }
 }
