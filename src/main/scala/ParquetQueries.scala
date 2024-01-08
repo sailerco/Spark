@@ -16,12 +16,12 @@ class ParquetQueries(session: SparkSession, utils: Utils) extends SimpleQueries 
 
   override def isConsistent(): Future[Boolean] = Future {
     data
-      .filter(row => row.home_score.isDefined && row.away_score.isDefined)
+      .filter(row => row.team.isDefined)
       .groupBy("date", "home_team", "away_team", "team", "home_score", "away_score")
       .agg(count("team").as("goals"))
       .as[GroupedData]
-      .filter(row => (row.home_team.equals(row.team) && row.home_score != row.goals)
-        || (row.away_team.equals(row.team) && row.away_score != row.goals))
+      .filter(row => (row.home_team == row.team && row.home_score != row.goals)
+        || (row.away_team == row.team && row.away_score != row.goals))
       .count() == 0
   }
 
