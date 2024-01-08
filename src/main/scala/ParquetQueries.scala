@@ -1,38 +1,50 @@
-import Utils.readParquet
+import org.apache.spark.sql.functions.count
 import org.apache.spark.sql.{Dataset, SparkSession}
-import org.apache.spark.sql.functions.{col, count}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class ParquetQueries(session: SparkSession) extends SimpleQueries {
-  val data: Dataset[_] = readParquet(session)
+class ParquetQueries(session: SparkSession, utils: Utils) extends SimpleQueries {
+
+  import session.implicits._
+
+  val data: Dataset[JoinedData] = utils.readParquet()
 
   override def close(): Future[Unit] = Future {
     session.close()
   }
 
   override def isConsistent(): Future[Boolean] = Future {
-    data.groupBy("date", "home_team", "away_team", "team", "home_score", "away_score")
+    data
+      .filter(row => row.home_score.isDefined && row.away_score.isDefined)
+      .groupBy("date", "home_team", "away_team", "team", "home_score", "away_score")
       .agg(count("team").as("goals"))
-      .filter((col("home_team") === col("team") && col("home_score") =!= col("goals"))
-        || (col("away_team") === col("team") && col("away_score") =!= col("goals")))
+      .as[GroupedData]
+      .filter(row => (row.home_team.equals(row.team) && row.home_score != row.goals)
+        || (row.away_team.equals(row.team) && row.away_score != row.goals))
       .count() == 0
   }
 
   override def countGoals(name: String): Future[Int] = Future {
-    data.filter(col("scorer") === name).count().toInt
+    data.filter(row =>
+        row.scorer.isDefined && row.scorer.get.equals(name))
+      .count().toInt
   }
 
   override def countRangeGoals(min: Int, max: Int): Future[Int] = Future {
     data
-      .select("date", "home_team", "away_team", "home_score", "away_score")
+      .filter(row =>
+        row.home_score.isDefined &&
+          row.away_score.isDefined &&
+          (min <= (row.home_score.get + row.away_score.get)) &&
+          (max >= (row.home_score.get + row.away_score.get))
+      )
+      .map(row => (row.date, row.home_team, row.away_team))
       .distinct()
-      .filter((col("home_score") + col("away_score")).between(min, max))
       .count().toInt
   }
 }
 
 object ParquetQueries {
-  def apply(session: SparkSession): ParquetQueries = new ParquetQueries(session)
+  def apply(session: SparkSession, utils: Utils): ParquetQueries = new ParquetQueries(session, utils)
 }

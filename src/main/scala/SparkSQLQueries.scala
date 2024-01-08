@@ -3,10 +3,10 @@ import org.apache.spark.sql.{Dataset, SparkSession}
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class SparkSQLQueries(session: SparkSession, results: Dataset[_], scorer: Dataset[_]) extends SimpleQueries {
+class SparkSQLQueries(session: SparkSession, utils: Utils) extends SimpleQueries {
 
-  scorer.createTempView("goalscorer")
-  results.createTempView("results")
+  utils.scorer.createTempView("goalscorer")
+  utils.results.createTempView("results")
 
   override def close(): Future[Unit] = Future {
     session.close()
@@ -21,17 +21,18 @@ class SparkSQLQueries(session: SparkSession, results: Dataset[_], scorer: Datase
   }
 
   override def countGoals(name: String): Future[Int] = Future {
-    val count = session.sql(s"SELECT COUNT(*) AS goalCount FROM goalscorer WHERE scorer = '$name'")
-    count.first().getLong(0).toInt
+    session
+      .sql(s"SELECT COUNT(*) AS goalCount FROM goalscorer WHERE scorer = '$name'")
+      .first().getLong(0).toInt
   }
 
   override def countRangeGoals(min: Int, max: Int): Future[Int] = Future {
-    val count = session.sql(s"SELECT COUNT(*) FROM results as unique_matches " +
+    session.sql(s"SELECT COUNT(*) FROM results as unique_matches " +
       s"WHERE (home_score + away_score) BETWEEN $min AND $max")
-    count.first().getLong(0).toInt
+      .first().getLong(0).toInt
   }
 }
 
 object SparkSQLQueries {
-  def apply(session: SparkSession, results: Dataset[_], scorer: Dataset[_]): SparkSQLQueries = new SparkSQLQueries(session, results, scorer)
+  def apply(session: SparkSession, utils: Utils): SparkSQLQueries = new SparkSQLQueries(session, utils: Utils)
 }

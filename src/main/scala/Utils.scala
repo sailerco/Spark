@@ -10,26 +10,6 @@ class Utils(session: SparkSession) {
   val shootouts: Dataset[Shootouts] = session.read.option("header", true).option("inferSchema", true).csv("shootouts.csv").as[Shootouts]
   val results: Dataset[Results] = session.read.option("header", true).option("inferSchema", true).csv("results.csv").as[Results]
   val scorer: Dataset[Scorer] = session.read.option("header", true).option("inferSchema", true).csv("goalscorers.csv").as[Scorer]
-}
-
-case class Scorer(date: String, home_team: String, away_team: String, team: String, scorer: String,
-                  minute: Int, own_goal: Boolean, penalty: Boolean)
-
-case class Results(date: String, home_team: String, away_team: String, home_score: Int, away_score: Int,
-                   tournament: String, city: String, country: String, neutral: Boolean)
-
-case class Shootouts(date: String, home_team: String, away_team: String, winner: String)
-
-case class Joined(date: String, home_team: String, away_team: String, home_score: Int, away_score: Int,
-                  tournament: String, city: String, country: String, neutral: Boolean, team: String,
-                  scorer: String, minute: Int, own_goal: Boolean,penalty: Boolean, winner: String)
-
-case class ResultsWithScorers(date: String, home_team: String, away_team: String, team: String, home_score: Int, away_score: Int, goals: Long)
-
-
-object Utils {
-
-  def apply(session: SparkSession): Utils = new Utils(session)
 
   def execute(queries: SimpleQueries, name: String, min: Int, max: Int): Unit = {
     queries.isConsistent().onComplete { case Failure(exception) => exception.printStackTrace()
@@ -46,16 +26,22 @@ object Utils {
     }
   }
 
-  def readParquet(session: SparkSession): Dataset[_] = {
-    import session.implicits._
-    session.read.parquet("./data/matches").as[Joined]
+  def readParquet(): Dataset[JoinedData] = {
+    session
+      .read
+      .parquet("./data/matches")
+      .as[JoinedData]
   }
 
-  def createParquetFile(results: Dataset[Results], scorer: Dataset[Scorer], shootouts: Dataset[Shootouts]): Unit = {
+  def createParquetFile(): Unit = {
     results
       .join(scorer, Seq("date", "home_team", "away_team"), "outer")
       .join(shootouts, Seq("date", "home_team", "away_team"), "outer")
       .write
+      .mode("overwrite")
       .parquet("data/matches")
   }
+}
+object Utils {
+  def apply(session: SparkSession): Utils = new Utils(session)
 }

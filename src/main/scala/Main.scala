@@ -1,4 +1,3 @@
-import Utils.{createParquetFile, execute}
 import com.globalmentor.apache.hadoop.fs.BareLocalFileSystem
 import org.apache.hadoop.fs.FileSystem
 import org.apache.spark.sql.SparkSession
@@ -15,13 +14,14 @@ object Main {
     session.sparkContext.setLogLevel("WARN")
 
     val utils = new Utils(session)
-    //createParquetFile(utils.results, utils.scorer, utils.shootouts)
-    val queryList = List(ParquetQueries(session), SparkSQLQueries(session, utils.results, utils.scorer))
+    utils.createParquetFile()
+    val queryList = List(ParquetQueries(session, utils), SparkSQLQueries(session, utils))
     for (queries <- queryList) {
-      execute(queries, "Gerd Müller", 15, 20)
+      utils.execute(queries, "Gerd Müller", 15, 20)
     }
+
     Console.in.read()
-    for(query <- queryList)
+    for (query <- queryList)
       query.close()
     Console.in.read()
   }
